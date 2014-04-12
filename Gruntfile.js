@@ -1,36 +1,37 @@
 module.exports = function (grunt) {
 
-    // globs where our JS files are found - used below in uglify and watch
-    var jsFilePaths = [
-        'js/*.js',
-        'js/app/*.js',
-        'js/app/modules/*.js'
-    ];
-
     // Project configuration
     grunt.initConfig({
         // you can read in JSON files, which are then set as objects. We use this below with banner
         pkg: grunt.file.readJSON('package.json'),
 
         // setup some variables that we'll use below
-        srcDir: 'assets',
+        rootAssetsDir: 'assets',
         webDir: 'web',
-        targetDir: '<%= webDir %>/<%= srcDir %>',
+        targetAssetsDir: '<%= webDir %>/assets',
 
         copy: {
             main: {
                 files: [
-                    {expand: true, src: ['<%= srcDir %>/**'], dest: '<%= webDir %>'}
+                    {
+                        expand: true,
+                        src: [
+                            // copy /assets to /web/assets
+                            '<%= rootAssetsDir %>/**',
+                            // but don't copy the SASS source files, not needed!
+                            '!<%= rootAssetsDir %>/sass/**',
+                            // and don't copy the config directory
+                            '!<%= rootAssetsDir %>/config/**'
+                        ],
+                        dest: '<%= webDir %>'
+                    }
                 ]
             }
         },
 
         clean: {
             build: {
-                src: ['<%= targetDir %>/**']
-            },
-            sass: {
-                src: ['<%= targetDir %>/sass']
+                src: ['<%= targetAssetsDir %>/**']
             }
         },
 
@@ -40,10 +41,10 @@ module.exports = function (grunt) {
             // files or configuration
             main: {
                 options: {
-                    mainConfigFile: '<%= targetDir %>/js/common.js',
-                    appDir: '<%= srcDir %>',
+                    mainConfigFile: '<%= targetAssetsDir %>/js/common.js',
+                    appDir: '<%= rootAssetsDir %>',
                     baseUrl: './js',
-                    dir: '<%= targetDir %>',
+                    dir: '<%= targetAssetsDir %>',
                     // will be taken care of with compass
                     optimizeCss: "none",
                     // will be taken care of with an uglify task directly
@@ -95,30 +96,14 @@ module.exports = function (grunt) {
                 banner: '/*! <%= pkg.name %> <%= grunt.template.today("yyyy-mm-dd") %> */\n'
             },
             build: {
-                /*
-                 * I'm not sure if finding files recursively is possible. This is
-                 * a bit ugly, but it accomplishes the task of finding all files
-                 * in the built directory (that we want, not vendor) and uglifying them.
-                 *
-                 * Additionally, I created a little self-executing function
-                 * here so that I could re-use the jsFilePaths from above
-                 *
-                 * https://github.com/gruntjs/grunt-contrib-uglify/issues/23
-                 */
-                files: (function() {
-
-                    var files = [];
-                    jsFilePaths.forEach(function(val) {
-                        files.push({
-                            expand: true,
-                            cwd: '<%= targetDir %>',
-                            src: val,
-                            dest: '<%= targetDir %>'
-                        });
-                    });
-
-                    return files;
-                })()
+                files: [
+                    {
+                        expand: true,
+                        cwd: '<%= targetAssetsDir %>/js/',
+                        src: ['**/*.js'],
+                        dest: '<%= targetAssetsDir %>/js/'
+                    }
+                ]
             }
         },
 
@@ -129,7 +114,7 @@ module.exports = function (grunt) {
             },
             all: [
                 'Gruntfile.js',
-                '<%= targetDir %>/js/{,*/}*.js'
+                '<%= targetAssetsDir %>/js/{,*/}*.js'
             ]
         },
 
@@ -138,8 +123,8 @@ module.exports = function (grunt) {
             // the "production" build subtask (grunt compass:dist)
             dist: {
                 options: {
-                    sassDir: '<%= targetDir %>/sass',
-                    cssDir: '<%= targetDir %>/css',
+                    // SASS and CSS paths are defined in the config
+                    config: '<%= rootAssetsDir %>/config/compass.rb',
                     environment: 'production',
                     outputStyle: 'compressed'
                 }
@@ -147,8 +132,8 @@ module.exports = function (grunt) {
             // the "development" build subtask (grunt compass:dev)
             dev: {
                 options: {
-                    sassDir: '<%= targetDir %>/sass',
-                    cssDir: '<%= targetDir %>/css',
+                    // SASS and CSS paths are defined in the config
+                    config: '<%= rootAssetsDir %>/config/compass.rb',
                     outputStyle: 'expanded'
                 }
             }
@@ -158,7 +143,7 @@ module.exports = function (grunt) {
         watch: {
             // watch all JS files and run jshint
             scripts: {
-                files: ['<%= srcDir %>/js/**'],
+                files: ['<%= rootAssetsDir %>/js/**'],
                 tasks: ['copy', 'jshint'],
                 options: {
                     spawn: false
@@ -166,7 +151,7 @@ module.exports = function (grunt) {
             },
             // watch all .scss files and run compass
             compass: {
-                files: '<%= srcDir %>/sass/*.scss',
+                files: '<%= rootAssetsDir %>/sass/*.scss',
                 tasks: ['copy', 'compass:dev'],
                 options: {
                     spawn: false
@@ -186,7 +171,7 @@ module.exports = function (grunt) {
     grunt.loadNpmTasks('grunt-contrib-clean');
 
     // sub-task that copies assets to web/assets, and also cleans some things
-    grunt.registerTask('copy:assets', ['clean:build', 'copy', 'clean:sass']);
+    grunt.registerTask('copy:assets', ['clean:build', 'copy']);
 
     // the "default" task (e.g. simply "Grunt") runs tasks for development
     grunt.registerTask('default', ['copy:assets', 'jshint', 'compass:dev']);
